@@ -1,0 +1,54 @@
+idf_component_register(
+    SRCS "main.c"
+          "domain/agent/system_prompt_policy.c"
+          "domain/conversation/response_route_policy.c"
+          "domain/device/indicator_policy.c"
+          "domain/ota/ota_policy.c"
+          "domain/system/boot_policy.c"
+          "application/services/agent_runtime_service.c"
+          "application/services/conversation_payload_mapper.c"
+          "application/services/ddd_regression_checks.c"
+          "application/services/device_boot_service.c"
+          "application/services/integration_boot_service.c"
+          "application/services/ota_runtime_service.c"
+          "application/services/app_lifecycle_service.c"
+          "infrastructure/runtime/default_agent_runtime_ports.c"
+          "infrastructure/runtime/default_ota_runtime_ports.c"
+          "infrastructure/runtime/default_runtime_ports.c"
+          "infrastructure/ota/esp_ota_manager.c"
+          "infrastructure/startup/system_startup.c"
+          "infrastructure/config/app_config.c"
+          "infrastructure/network/wifi_manager.c"
+          "infrastructure/network/config_mode.c"
+          "infrastructure/device/led_strip_tool.c"
+          "infrastructure/tools/tool_registry.c"
+          "infrastructure/tools/tool_builtins.c"
+          "infrastructure/ai/agent.c"
+          "infrastructure/messaging/message_bus.c"
+          "infrastructure/integration/feishu/feishu_bot.c"
+    INCLUDE_DIRS "."
+                 "domain"
+                 "application"
+                 "infrastructure"
+                 "infrastructure/ai"
+                 "infrastructure/config"
+                 "infrastructure/device"
+                 "infrastructure/integration/feishu"
+                 "infrastructure/messaging"
+                 "infrastructure/network"
+                 "infrastructure/tools"
+    REQUIRES esp_https_ota
+         app_update
+         json
+         esp_wifi
+         esp_event
+         esp_netif
+         nvs_flash
+         esp_http_client
+         esp-tls
+         mbedtls
+         esp_timer
+         wifi_provisioning
+         bt
+         spiffs
+)

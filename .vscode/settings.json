@@ -1,0 +1,14 @@
+{
+	"idf.currentSetup": "D:/app/Espressif/frameworks/esp-idf-v5.5.1/",
+	"idf.customExtraVars": {
+		"IDF_CCACHE_ENABLE": "1",
+		"OPENOCD_SCRIPTS": "D:\\app\\Espressif\\tools\\openocd-esp32\\v0.12.0-esp32-20250707\\openocd-esp32\\share\\openocd\\scripts",
+		"ESP_ROM_ELF_DIR": "D:\\app\\Espressif\\tools\\esp-rom-elfs\\20241011",
+		"IDF_TARGET": "esp32s3"
+	},
+	"idf.openOcdConfigs": [
+		"board/esp32s3-builtin.cfg"
+	],
+	"idf.flashType": "UART",
+	"idf.portWin": "COM3"
+}
