@@ -3,6 +3,8 @@
 #include "esp_log.h"
 #include <ctype.h>
 #include <string.h>
+#include "animation_downloader.h"
+#include "animation_player.h"
 
 static const char *TAG = "tool_builtins";
 
@@ -123,53 +125,6 @@ static cJSON *handle_set_led_range(const cJSON *params)
     return result;
 }
 
-static cJSON *handle_start_animation(const cJSON *params)
-{
-    cJSON *result = cJSON_CreateObject();
-    cJSON *name_j = cJSON_GetObjectItem(params, "effect");
-    cJSON *r_j = cJSON_GetObjectItem(params, "r");
-    cJSON *g_j = cJSON_GetObjectItem(params, "g");
-    cJSON *b_j = cJSON_GetObjectItem(params, "b");
-    cJSON *speed_j = cJSON_GetObjectItem(params, "speed");
-
-    const char *effect = cJSON_IsString(name_j) ? name_j->valuestring : "rainbow";
-    uint8_t r = r_j ? (uint8_t)r_j->valueint : 255;
-    uint8_t g = g_j ? (uint8_t)g_j->valueint : 255;
-    uint8_t b = b_j ? (uint8_t)b_j->valueint : 255;
-    int speed = speed_j ? speed_j->valueint : 50;
-
-    led_anim_type_t type = LED_ANIM_RAINBOW;
-    if (strcmp(effect, "breathing") == 0) type = LED_ANIM_BREATHING;
-    else if (strcmp(effect, "rainbow") == 0) type = LED_ANIM_RAINBOW;
-    else if (strcmp(effect, "chase") == 0) type = LED_ANIM_CHASE;
-    else if (strcmp(effect, "twinkle") == 0) type = LED_ANIM_TWINKLE;
-    else if (strcmp(effect, "gradient") == 0) type = LED_ANIM_GRADIENT;
-    else if (strcmp(effect, "fire") == 0) type = LED_ANIM_FIRE;
-    else if (strcmp(effect, "rain") == 0) type = LED_ANIM_RAIN;
-    else if (strcmp(effect, "snow") == 0) type = LED_ANIM_SNOW;
-    else if (strcmp(effect, "sunny") == 0) type = LED_ANIM_SUNNY;
-
-    esp_err_t err = led_strip_tool_start_animation(type, r, g, b, speed);
-    if (err == ESP_OK) {
-        cJSON_AddStringToObject(result, "status", "ok");
-        cJSON_AddStringToObject(result, "effect", effect);
-        ESP_LOGI(TAG, "start_animation: %s, speed=%d, rgb=(%d,%d,%d)", effect, speed, r, g, b);
-    } else {
-        cJSON_AddStringToObject(result, "status", "error");
-        cJSON_AddStringToObject(result, "message", "Failed to start animation");
-    }
-    return result;
-}
-
-static cJSON *handle_stop_animation(const cJSON *params)
-{
-    (void)params;
-    cJSON *result = cJSON_CreateObject();
-    led_strip_tool_stop_animation();
-    cJSON_AddStringToObject(result, "status", "ok");
-    ESP_LOGI(TAG, "stop_animation: done");
-    return result;
-}
 
 static int matrix_xy_to_index(int x, int y, bool serpentine)
 {
@@ -266,7 +221,35 @@ static cJSON *handle_draw_pattern_10x10(const cJSON *params)
     return result;
 }
 
-static const char *anim_enum[] = {"breathing", "rainbow", "chase", "twinkle", "gradient", "fire", "rain", "snow", "sunny"};
+// 通过关键词下载并播放动画
+static cJSON *handle_play_animation_by_keyword(const cJSON *params)
+{
+    cJSON *result = cJSON_CreateObject();
+    cJSON *keyword_j = cJSON_GetObjectItem(params, "keyword");
+    if (!cJSON_IsString(keyword_j) || strlen(keyword_j->valuestring) == 0) {
+        cJSON_AddStringToObject(result, "status", "error");
+        cJSON_AddStringToObject(result, "message", "keyword required");
+        return result;
+    }
+    char local_path[128] = {0};
+    bool ok = animation_downloader_download(keyword_j->valuestring, local_path, sizeof(local_path));
+    if (!ok) {
+        cJSON_AddStringToObject(result, "status", "error");
+        cJSON_AddStringToObject(result, "message", "download failed");
+        return result;
+    }
+    ok = animation_player_play(local_path);
+    if (!ok) {
+        cJSON_AddStringToObject(result, "status", "error");
+        cJSON_AddStringToObject(result, "message", "play failed");
+        return result;
+    }
+    cJSON_AddStringToObject(result, "status", "ok");
+    cJSON_AddStringToObject(result, "message", "animation playing");
+    cJSON_AddStringToObject(result, "keyword", keyword_j->valuestring);
+    return result;
+}
+
 
 // 工具描述表（可扩展）
 typedef struct {
@@ -329,25 +312,6 @@ tool_def_t builtin_tools[] = {
             .handler = handle_set_led_range,
         },
         {
-            .name = "start_animation",
-            .description = "Start a LED animation effect. Available effects: breathing (pulsing glow), rainbow (flowing colors), chase (running light), twinkle (sparkling stars), gradient (color fade), fire (flame), rain (rain drops), snow (snowfall), sunny (warm glow). Color params apply to most effects; rainbow/fire/rain/snow/sunny use built-in colors.",
-            .param_count = 5,
-            .params = {
-                { .name = "effect", .description = "Animation effect name", .type = TOOL_PARAM_TYPE_STRING, .required = true, .enum_values = anim_enum, .enum_count = 9 },
-                { .name = "r", .description = "Red (0-255, default 255)", .type = TOOL_PARAM_TYPE_INT, .required = false, .has_minimum = true, .minimum = 0, .has_maximum = true, .maximum = 255 },
-                { .name = "g", .description = "Green (0-255, default 255)", .type = TOOL_PARAM_TYPE_INT, .required = false, .has_minimum = true, .minimum = 0, .has_maximum = true, .maximum = 255 },
-                { .name = "b", .description = "Blue (0-255, default 255)", .type = TOOL_PARAM_TYPE_INT, .required = false, .has_minimum = true, .minimum = 0, .has_maximum = true, .maximum = 255 },
-                { .name = "speed", .description = "Animation speed (1=slowest, 100=fastest, default 50)", .type = TOOL_PARAM_TYPE_INT, .required = false, .has_minimum = true, .minimum = 1, .has_maximum = true, .maximum = 100 },
-            },
-            .handler = handle_start_animation,
-        },
-        {
-            .name = "stop_animation",
-            .description = "Stop the currently running animation and turn off LEDs.",
-            .param_count = 0,
-            .handler = handle_stop_animation,
-        },
-        {
             .name = "draw_pattern_10x10",
             .description = "Draw a 10x10 LED matrix pattern. Default mapping is row-major (1-10 first row, 11 under 1). The pattern must contain exactly 100 pixels using on/off symbols. ON symbols: 1 # * X x @, OFF symbols: 0 . - _. Spaces/newlines/commas are ignored.",
             .param_count = 8,
@@ -362,6 +326,15 @@ tool_def_t builtin_tools[] = {
                 { .name = "serpentine", .description = "If true, odd rows are reversed (snake wiring). Default false. Keep false for row-major layout: 1-10 first row and 11 under 1.", .type = TOOL_PARAM_TYPE_BOOL, .required = false },
             },
             .handler = handle_draw_pattern_10x10,
+        },
+        {
+            .name = "play_animation_by_keyword",
+            .description = "Play an animation by keyword. The keyword must match an existing animation file.",
+            .param_count = 1,
+            .params = {
+                { .name = "keyword", .description = "Animation keyword", .type = TOOL_PARAM_TYPE_STRING, .required = true },
+            },
+            .handler = handle_play_animation_by_keyword,
         },
     };
     int tool_count = sizeof(builtin_tools) / sizeof(builtin_tools[0]);

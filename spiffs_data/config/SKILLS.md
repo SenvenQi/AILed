@@ -9,6 +9,5 @@
 - set_brightness: on
 - set_led_color: on
 - set_led_range: on
-- start_animation: on
-- stop_animation: on
 - draw_pattern_10x10: on
+- play_animation_by_keyword: on
