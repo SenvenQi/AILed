@@ -625,15 +625,16 @@ static void feishu_ws_task(void *arg)
         esp_websocket_register_events(s_ws_client, WEBSOCKET_EVENT_ANY, feishu_ws_event_handler, NULL);
         esp_websocket_client_start(s_ws_client);
 
-        bool ever_connected = false;
         int64_t last_ping = 0;
         while (s_ws_client) {
             if (s_ws_connected) {
-                ever_connected = true;
                 int64_t now = esp_timer_get_time() / 1000;
                 if (now - last_ping >= s_ws_ping_interval_ms) {
                     ws_frame_t ping = {0};
+                    ping.seq_id = 0;
+                    ping.log_id = 0;
                     ping.service = s_ws_service_id;
+                    ping.method = 0;
                     ping.header_count = 1;
                     strncpy(ping.headers[0].key, "type", sizeof(ping.headers[0].key) - 1);
                     strncpy(ping.headers[0].value, "ping", sizeof(ping.headers[0].value) - 1);
@@ -641,7 +642,7 @@ static void feishu_ws_task(void *arg)
                     last_ping = now;
                 }
             }
-            if (ever_connected && !s_ws_connected) {
+            if (!esp_websocket_client_is_connected(s_ws_client) && !s_ws_connected) {
                 break;
             }
             vTaskDelay(pdMS_TO_TICKS(200));
