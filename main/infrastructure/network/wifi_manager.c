@@ -20,7 +20,6 @@ static int s_retry_num = 0;
 static bool s_connected = false;
 static bool s_initialized = false;
 static bool s_wifi_started = false;
-static bool s_connect_requested = false;
 
 static void wifi_prepare_wait(void)
 {
@@ -29,7 +28,6 @@ static void wifi_prepare_wait(void)
     }
     s_retry_num = 0;
     s_connected = false;
-    s_connect_requested = true;
 }
 
 static esp_err_t wifi_wait_for_result(uint32_t timeout_ms)
@@ -42,7 +40,6 @@ static esp_err_t wifi_wait_for_result(uint32_t timeout_ms)
         return ESP_OK;
     }
 
-    s_connect_requested = false;
     if (bits & WIFI_FAIL) {
         return ESP_FAIL;
     }
@@ -64,20 +61,17 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
 {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         s_connected = false;
-        if (s_connect_requested && s_retry_num < MAX_RETRY) {
+        // if (s_connect_requested) {
             esp_wifi_connect();
-            s_retry_num++;
             ESP_LOGI(TAG, "Retrying Wi-Fi connection...");
-        } else {
-            s_connect_requested = false;
-            xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL);
-        }
+        // } else {
+            // xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL);
+        // }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
         ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
         s_connected = true;
-        s_connect_requested = false;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED);
     }
 }
@@ -119,6 +113,8 @@ esp_err_t wifi_manager_init(void)
                         &wifi_event_handler, NULL, &instance_any_id), TAG, "Failed to register Wi-Fi handler");
     ESP_RETURN_ON_ERROR(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
                         &wifi_event_handler, NULL, &instance_got_ip), TAG, "Failed to register IP handler");
+
+    
 
     s_initialized = true;
     ESP_LOGI(TAG, "Wi-Fi manager initialized");
@@ -167,7 +163,6 @@ esp_err_t wifi_manager_disconnect(void)
         return ESP_OK;
     }
 
-    s_connect_requested = false;
     s_connected = false;
     return esp_wifi_disconnect();
 }
