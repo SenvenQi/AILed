@@ -44,6 +44,8 @@ esp_err_t time_sntp_init(const char *server)
             return ESP_ERR_NO_MEM;
         }
     }
+	setenv("TZ", "CST-8", 1);
+	tzset();
 
     esp_sntp_stop();
     esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
