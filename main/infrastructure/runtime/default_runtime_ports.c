@@ -9,6 +9,7 @@
 #include "infrastructure/runtime/default_ota_runtime_ports.h"
 #include "infrastructure/startup/system_startup.h"
 #include "led_strip_tool.h"
+#include "infrastructure/time/sntp_time.h"
 
 static esp_err_t port_init_nvs(void)
 {
@@ -23,6 +24,11 @@ static esp_err_t port_init_device_stack(void)
 static esp_err_t port_ensure_network_ready(void)
 {
     return system_startup_ensure_wifi_ready();
+}
+
+static esp_err_t port_init_time(void)
+{
+    return system_startup_init_time();
 }
 
 static esp_err_t port_start_ai_runtime(void)
@@ -64,6 +70,7 @@ app_runtime_ports_t default_runtime_ports_build(void)
         .init_nvs = port_init_nvs,
         .init_device_stack = port_init_device_stack,
         .ensure_network_ready = port_ensure_network_ready,
+        .init_time = port_init_time,
         .init_ota = port_init_ota,
         .start_ai_runtime = port_start_ai_runtime,
         .publish_system_context = port_publish_system_context,

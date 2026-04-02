@@ -13,6 +13,7 @@
 #include "message_bus.h"
 #include "nvs_flash.h"
 #include "tool_registry.h"
+#include "infrastructure/time/sntp_time.h"
 
 static const char *TAG = "system_startup";
 
@@ -144,4 +145,22 @@ esp_err_t system_startup_publish_agent_system_context(void)
     esp_err_t ret = msg_bus_publish(MSG_TYPE_SYSTEM, payload_str, 1000);
     free(payload_str);
     return ret;
+}
+
+esp_err_t system_startup_init_time(void)
+{
+    ESP_LOGI(TAG, "Initializing SNTP/time...");
+    esp_err_t ret = time_sntp_init(NULL);
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "time_sntp_init failed: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    esp_err_t wait = time_wait_for_sync(10000); // wait up to 10s
+    if (wait == ESP_OK) {
+        ESP_LOGI(TAG, "Time synchronized at startup");
+    } else {
+        ESP_LOGW(TAG, "Time sync timeout or error: %s", esp_err_to_name(wait));
+    }
+    return wait;
 }

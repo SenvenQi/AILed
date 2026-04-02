@@ -20,6 +20,7 @@ idf_component_register(
           "infrastructure/config/app_config.c"
           "infrastructure/network/wifi_manager.c"
           "infrastructure/network/config_mode.c"
+         "infrastructure/time/sntp_time.c"
           "infrastructure/device/led_strip_tool.c"
           "infrastructure/tools/tool_registry.c"
           "infrastructure/tools/tool_builtins.c"
@@ -39,6 +40,7 @@ idf_component_register(
                  "infrastructure/integration/feishu"
                  "infrastructure/messaging"
                  "infrastructure/network"
+                 "infrastructure/time"
                  "infrastructure/tools"
     REQUIRES esp_https_ota
          app_update

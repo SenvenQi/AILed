@@ -15,7 +15,7 @@ static const char *TAG = "app_lifecycle";
 esp_err_t app_lifecycle_start(const app_runtime_ports_t *ports)
 {
     if (!ports || !ports->init_nvs || !ports->init_device_stack ||
-        !ports->ensure_network_ready || !ports->init_ota || !ports->start_ai_runtime ||
+        !ports->ensure_network_ready || !ports->init_time || !ports->init_ota || !ports->start_ai_runtime ||
         !ports->init_external_channels || !ports->start_external_channels ||
         !ports->clear_status_indicator ||
         !ports->publish_system_context) {
@@ -27,6 +27,8 @@ esp_err_t app_lifecycle_start(const app_runtime_ports_t *ports)
     ESP_RETURN_ON_ERROR(ports->init_nvs(), TAG, "init_nvs failed");
     ESP_RETURN_ON_ERROR(ports->init_device_stack(), TAG, "init_device_stack failed");
     ESP_RETURN_ON_ERROR(ports->ensure_network_ready(), TAG, "ensure_network_ready failed");
+
+    ESP_RETURN_ON_ERROR(ports->init_time(), TAG, "init_time failed");
 
     ota_runtime_ports_t ota_ports = {
         .init_ota = ports->init_ota,

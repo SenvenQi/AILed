@@ -4,6 +4,7 @@ typedef struct {
     esp_err_t (*init_nvs)(void);
     esp_err_t (*init_device_stack)(void);
     esp_err_t (*ensure_network_ready)(void);
+    esp_err_t (*init_time)(void);
     esp_err_t (*init_ota)(void);
     esp_err_t (*start_ai_runtime)(void);
     esp_err_t (*publish_system_context)(void);
