@@ -1,5 +1,7 @@
 #include "tool_registry.h"
 #include "led_strip_tool.h"
+#include "time_tool.h"
+#include "scheduler_tool.h"
 #include "esp_log.h"
 #include <ctype.h>
 #include <string.h>
@@ -250,6 +252,94 @@ static cJSON *handle_play_animation_by_keyword(const cJSON *params)
     return result;
 }
 
+// --- time tool wrapper ---
+static cJSON *handle_get_time(const cJSON *params)
+{
+    (void)params;
+    cJSON *result = cJSON_CreateObject();
+    time_t t;
+    if (tools_get_time(&t) != ESP_OK) {
+        cJSON_AddStringToObject(result, "status", "error");
+        cJSON_AddStringToObject(result, "message", "failed to get time");
+        return result;
+    }
+    char buf[32];
+    if (tools_format_time_iso(t, buf, sizeof(buf), false) == ESP_OK) {
+        cJSON_AddStringToObject(result, "iso_local", buf);
+    }
+    if (tools_format_time_iso(t, buf, sizeof(buf), true) == ESP_OK) {
+        cJSON_AddStringToObject(result, "iso_utc", buf);
+    }
+    cJSON_AddNumberToObject(result, "unix", (double)t);
+    cJSON_AddStringToObject(result, "status", "ok");
+    return result;
+}
+
+// --- schedule tool wrapper for builtin array ---
+static cJSON *handle_schedule_tool_builtin(const cJSON *params)
+{
+    cJSON *result = cJSON_CreateObject();
+    if (!params) {
+        cJSON_AddStringToObject(result, "status", "error");
+        cJSON_AddStringToObject(result, "message", "params required");
+        return result;
+    }
+
+    cJSON *tool_j = cJSON_GetObjectItem(params, "tool");
+    cJSON *at_j = cJSON_GetObjectItem(params, "at");
+    cJSON *p_j = cJSON_GetObjectItem(params, "params");
+
+    if (!cJSON_IsString(tool_j) || strlen(tool_j->valuestring) == 0) {
+        cJSON_AddStringToObject(result, "status", "error");
+        cJSON_AddStringToObject(result, "message", "tool name required");
+        return result;
+    }
+
+    time_t when = 0;
+    time_t now = time(NULL);
+    if (cJSON_IsNumber(at_j)) {
+        when = (time_t)at_j->valuedouble;
+    } else if (cJSON_IsString(at_j) && at_j->valuestring) {
+        const char *s = at_j->valuestring;
+        struct tm tmv = {0};
+        if (strchr(s, '-') && strchr(s, ':')) {
+            if (strptime(s, "%Y-%m-%d %H:%M:%S", &tmv) != NULL) {
+                when = mktime(&tmv);
+            } else if (strptime(s, "%Y-%m-%d %H:%M", &tmv) != NULL) {
+                when = mktime(&tmv);
+            }
+        } else if (strchr(s, ':')) {
+            int hr = 0, min = 0, sec = 0;
+            if (sscanf(s, "%d:%d:%d", &hr, &min, &sec) >= 2) {
+                struct tm now_tm;
+                localtime_r(&now, &now_tm);
+                now_tm.tm_hour = hr;
+                now_tm.tm_min = min;
+                now_tm.tm_sec = sec;
+                when = mktime(&now_tm);
+                if (when <= now) when += 24 * 3600;
+            }
+        }
+    }
+
+    if (when == 0) {
+        cJSON_AddStringToObject(result, "status", "error");
+        cJSON_AddStringToObject(result, "message", "invalid 'at' parameter; use unix timestamp or 'HH:MM' or 'YYYY-MM-DD HH:MM:SS'");
+        return result;
+    }
+
+    esp_err_t rc = scheduler_schedule_tool_at(tool_j->valuestring, p_j, when);
+    if (rc != ESP_OK) {
+        cJSON_AddStringToObject(result, "status", "error");
+        cJSON_AddStringToObject(result, "message", esp_err_to_name(rc));
+        return result;
+    }
+
+    cJSON_AddStringToObject(result, "status", "ok");
+    cJSON_AddNumberToObject(result, "scheduled_unix", (double)when);
+    return result;
+}
+
 
 // 工具描述表（可扩展）
 typedef struct {
@@ -335,6 +425,22 @@ tool_def_t builtin_tools[] = {
                 { .name = "keyword", .description = "Animation keyword", .type = TOOL_PARAM_TYPE_STRING, .required = true },
             },
             .handler = handle_play_animation_by_keyword,
+        },
+        {
+            .name = "get_time",
+            .description = "Return current system time (unix timestamp and ISO formatted strings).",
+            .param_count = 0,
+            .handler = handle_get_time,
+        },
+        {
+            .name = "schedule_tool",
+            .description = "Schedule a registered tool to run at a future wall-clock time. Params: {tool: string, at: string|number, params: object (optional)}",
+            .param_count = 2,
+            .params = {
+                { .name = "tool", .description = "Tool name to invoke", .type = TOOL_PARAM_TYPE_STRING, .required = true },
+                { .name = "at", .description = "Unix timestamp or 'HH:MM' or 'YYYY-MM-DD HH:MM:SS' string", .type = TOOL_PARAM_TYPE_STRING, .required = true },
+            },
+            .handler = handle_schedule_tool_builtin,
         },
     };
     int tool_count = sizeof(builtin_tools) / sizeof(builtin_tools[0]);

@@ -10,4 +10,6 @@
 - set_led_color: on
 - set_led_range: on
 - draw_pattern_10x10: on
-- play_animation_by_keyword: on
+- play_animation_by_keyword: off
+- get_time: on
+- schedule_tool: on

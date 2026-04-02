@@ -22,6 +22,8 @@ idf_component_register(
           "infrastructure/network/config_mode.c"
          "infrastructure/time/sntp_time.c"
           "infrastructure/device/led_strip_tool.c"
+          "infrastructure/tools/time_tool.c"
+          "infrastructure/tools/scheduler_tool.c"
           "infrastructure/tools/tool_registry.c"
           "infrastructure/tools/tool_builtins.c"
           "infrastructure/tools/animation_downloader.c"
