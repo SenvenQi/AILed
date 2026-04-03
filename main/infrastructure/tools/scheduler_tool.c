@@ -26,13 +26,20 @@ static void scheduler_task_entry(void *arg)
     if (!job) vTaskDelete(NULL);
 
     // compute remaining time
-    time_t now = time(NULL);
+    time_t now;
+    if (tools_get_time(&now) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to get current time");
+        vTaskDelete(NULL);
+    }
     int64_t diff_sec = (int64_t)job->when - (int64_t)now;
     while (diff_sec > 0) {
         // sleep in chunks up to 60s to remain responsive
         int64_t chunk = diff_sec > 60 ? 60 : diff_sec;
         vTaskDelay(pdMS_TO_TICKS((uint32_t)(chunk * 1000)));
-        now = time(NULL);
+        if (tools_get_time(&now) != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to get current time");
+            vTaskDelete(NULL);
+        }
         diff_sec = (int64_t)job->when - (int64_t)now;
     }
 
@@ -116,7 +123,11 @@ static cJSON *handle_schedule_tool(const cJSON *params)
     }
 
     time_t when = 0;
-    time_t now = time(NULL);
+    time_t now;
+    if (tools_get_time(&now) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to get current time");
+        vTaskDelete(NULL);
+    }
     if (cJSON_IsNumber(at_j)) {
         when = (time_t)at_j->valuedouble;
     } else if (cJSON_IsString(at_j) && at_j->valuestring) {
