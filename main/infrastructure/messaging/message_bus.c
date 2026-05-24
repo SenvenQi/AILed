@@ -124,6 +124,16 @@ msg_bus_sub_handle_t msg_bus_subscribe(msg_type_t type, msg_bus_handler_t handle
     if (!s_bus.initialized || handler == NULL || type >= MSG_TYPE_MAX) {
         return NULL;
     }
+
+    for (int i = 0; i < s_bus.sub_count; i++) {
+        if (s_bus.subs[i].type == type && s_bus.subs[i].handler == handler) {
+            s_bus.subs[i].user_data = user_data;
+            s_bus.subs[i].active = true;
+            ESP_LOGW(TAG, "Re-subscribe ignored for type=%d (handler already registered)", type);
+            return &s_bus.subs[i];
+        }
+    }
+
     if (s_bus.sub_count >= MSG_BUS_SUB_MAX) {
         ESP_LOGE(TAG, "Subscriber limit reached");
         return NULL;

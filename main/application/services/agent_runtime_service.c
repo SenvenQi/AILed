@@ -23,6 +23,7 @@ static const char *TAG = "agent_runtime_service";
 
 static QueueHandle_t s_agent_queue = NULL;
 static agent_runtime_ports_t s_ports = {0};
+static bool s_started = false;
 
 static void publish_routed_ai_text(const char *text, const conversation_user_input_t *req)
 {
@@ -174,6 +175,11 @@ esp_err_t agent_runtime_service_start(const agent_runtime_ports_t *ports)
         return ESP_ERR_INVALID_ARG;
     }
 
+    if (s_started) {
+        ESP_LOGW(TAG, "Agent runtime already started, ignoring re-start");
+        return ESP_OK;
+    }
+
     s_ports = *ports;
 
     ESP_RETURN_ON_ERROR(s_ports.init_agent(), TAG, "Failed to init agent");
@@ -191,6 +197,8 @@ esp_err_t agent_runtime_service_start(const agent_runtime_ports_t *ports)
                                              NULL,
                                              MALLOC_CAP_SPIRAM);
     if (task_ok != pdPASS) {
+        vQueueDelete(s_agent_queue);
+        s_agent_queue = NULL;
         return ESP_ERR_NO_MEM;
     }
 
@@ -204,5 +212,6 @@ esp_err_t agent_runtime_service_start(const agent_runtime_ports_t *ports)
         ESP_LOGW(TAG, "Failed to subscribe SYSTEM");
     }
 
+    s_started = true;
     return ESP_OK;
 }
