@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/idf_additions.h"
@@ -42,8 +43,11 @@ static bool s_ws_connected = false;
 static void handle_message_event(cJSON *event);
 
 #define FEISHU_DEDUP_CACHE_SIZE 64
+#define FEISHU_DEDUP_EMPTY      UINT64_MAX
 
-static uint64_t s_seen_msg_keys[FEISHU_DEDUP_CACHE_SIZE] = {0};
+static uint64_t s_seen_msg_keys[FEISHU_DEDUP_CACHE_SIZE] = {
+    [0 ... FEISHU_DEDUP_CACHE_SIZE - 1] = FEISHU_DEDUP_EMPTY,
+};
 static size_t s_seen_msg_idx = 0;
 
 static uint64_t fnv1a64(const char *s)
@@ -60,7 +64,11 @@ static uint64_t fnv1a64(const char *s)
 static bool dedup_check_and_record(const char *message_id)
 {
     uint64_t key = fnv1a64(message_id);
+    if (key == FEISHU_DEDUP_EMPTY) {
+        key ^= 1ULL;
+    }
     for (size_t i = 0; i < FEISHU_DEDUP_CACHE_SIZE; i++) {
+        if (s_seen_msg_keys[i] == FEISHU_DEDUP_EMPTY) break;
         if (s_seen_msg_keys[i] == key) return true;
     }
     s_seen_msg_keys[s_seen_msg_idx] = key;
